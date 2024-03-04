@@ -5,11 +5,15 @@ using UnityEngine.UI;
 using UnityEngine.Events;
 using UnityEngine.SceneManagement;
 using Unity.VisualScripting;
+using System.Data;
 
 public class GameManager : MonoBehaviour
 {
+    // game state
+    [SerializeField] 
+    private bool isUIVisible = false;
+
     public bool yesOrNot = false;
-    public bool buttonPressed = false;
 
     //UI
     public GameObject background;
@@ -17,188 +21,237 @@ public class GameManager : MonoBehaviour
     public Button noButton;
 
 
-    //GameObjects
-    public float triggerDistance = 5.0f;
+    //Game state -- Level 1
+    public bool weaponPartEnded = false;
+    public bool doorPartEnded = false, doorResetInProcess = false;
+    public bool picturesPartEnded = false, askedToPickAPicture = false;
 
-    public bool isWeaponPicked = false;
-    public bool isDoorOpened = false;
+    //GameObjects
+    public float triggerDistance = 5.0f; 
+
+    public bool isWeaponNear = false;
+    public bool isDoorNear = false;
 
     public Transform player, weapon, door, dontOpenText3D;
+    public List<GameObject> pictures = new List<GameObject>();
+    public List<Transform> picturePlaceholders = new List<Transform>();
     public Material doorMaterial;
 
     public AudioSource playerASDeath;
 
-    public UnityEvent onYesPressed = new UnityEvent();
-    public UnityEvent onNoPressed = new UnityEvent();
-
     public static GameManager Instance;
+    
+    // Methods
     void Start()
     {
         Instance = this;
-        onYesPressed.AddListener(OnYesButtonPressed);
-        onNoPressed.AddListener(OnNoButtonPressed);
-    }
 
-    public void OnYesButtonPressed()
-    {
-        yesOrNot = true;
-        buttonPressed = true;
+        // optional
+        doorMaterial.SetColor("_EmissionColor", new Vector4(0f, 0f));
     }
-    public void OnNoButtonPressed()
-    {
-        yesOrNot = false;
-        buttonPressed = true;
-    }
-
     private void Update()
     {
-        CheckRadiuses();
-        CheckInput();
+        if (!isUIVisible)
+        {
+            CheckRadiuses();
+        }
     }
 
-    void CheckInput()
-    {
-        if (Input.GetKey(KeyCode.Y))
-        {
-            onYesPressed.Invoke();
-        }
-        else if(Input.GetKey(KeyCode.N))
-        {
-            onNoPressed.Invoke();
-        }
-    }
     void CheckRadiuses()
     {
-        if (!isWeaponPicked)
+        //Weapon part
+        if (!isWeaponNear && !weaponPartEnded)
         {
-            float distance1 = Vector3.Distance(player.position, weapon.position);
-            if (distance1 < triggerDistance)
+            float weaponDistance = Vector3.Distance(player.position, weapon.position);
+            if (weaponDistance < triggerDistance)
             {
-                isWeaponPicked = true;
-                WeaponPicked();
+                isWeaponNear = true;
+                WeaponPickingHandler();
                 return;
             }
         }
 
-        if (!isDoorOpened)
+        //Door part
+        if (!isDoorNear && !doorPartEnded)
         {
-            float distance2 = Vector3.Distance(player.position, door.position);
-            if (distance2 < triggerDistance)
+            float doorDistance = Vector3.Distance(player.position, door.position);
+            if (doorDistance < triggerDistance)
             {
-                isDoorOpened = true;
-                DoorOpened();
+                isDoorNear = true;
+                DoorOpeningHandler();
                 return;
+            }
+        }
+        else if (isDoorNear)
+        {
+            StartCoroutine(ResetDoorNearState());
+        }
+
+        //Pictures part
+        if (!picturesPartEnded && weaponPartEnded && doorPartEnded)
+        {
+            foreach (Transform ph in picturePlaceholders)
+            {
+                float placeHolderDistance = Vector3.Distance(player.position, ph.transform.position);
+                if (placeHolderDistance < triggerDistance + 1.25f && !askedToPickAPicture) // added additional value due to bad objects
+                {
+                    AskToPickALetter();
+                }
+                else if (placeHolderDistance < triggerDistance + 1.25f && askedToPickAPicture)
+                {
+                    Debug.Log("SOMETHING!))))) :)");
+                }
             }
         }
     }
 
-    void WeaponPicked()
+    // Weapon Part
+    void WeaponPickingHandler()
     {
-        Time.timeScale = 0.1f;
-        background.SetActive(true);
-        yesButton.gameObject.SetActive(true);
-        noButton.gameObject.SetActive(true);
-        // camera freeze
-        StartCoroutine("DoButtonPressed1");
+        showQuestionUI();
+        StartCoroutine("DoButtonPressedForWeapon");
     }
-
-    IEnumerator DoButtonPressed1()
+    IEnumerator DoButtonPressedForWeapon()
     {
-        yield return new WaitUntil(() => buttonPressed);
+        yield return new WaitUntil(() => Input.GetKey(KeyCode.Y) || Input.GetKey(KeyCode.N));
 
-        //yes pressed
-        if (yesOrNot == true)
+        if (Input.GetKey(KeyCode.Y)) //yes pressed
         {
             player.gameObject.GetComponent<Animator>().SetBool("dead", true);
             playerASDeath.Play();
-            //player.gameObject.GetComponent<AudioSource>().Play();
-            //gameends...
-
-
-            //death animation and sound
-            Debug.Log("Pressed Yes");
-
             StartCoroutine("DestroyWeapon");
             StartCoroutine("RestartScene");
         }
-        else // no pressed
+        else if (Input.GetKey(KeyCode.N)) // no pressed
         {
             StartCoroutine("DestroyWeapon");
-            Debug.Log("Pressed No");
         }
-        Time.timeScale = 1f;
-        background.SetActive(false);
-        yesButton.gameObject.SetActive(false);
-        noButton.gameObject.SetActive(false);
 
-        buttonPressed = false;
+        weaponPartEnded = true;
+        hideQuestionUI();
         yield return new WaitForSeconds(.1f);
     }
-   
     IEnumerator DestroyWeapon()
     {
         Rigidbody weaponRB = weapon.gameObject.AddComponent<Rigidbody>();
         weaponRB.useGravity = true;
         weaponRB.mass = 1.0f;
-        weaponRB.AddForce(3f, 0f, 0f, ForceMode.Impulse);
+        weaponRB.AddForce(3f, 5f, 0f, ForceMode.Impulse);
         yield return new WaitForSeconds(5);
         Destroy(weapon.gameObject);
     }
 
+    // Door Part
+    IEnumerator ResetDoorNearState()
+    {
+        if (doorResetInProcess)
+        {
+            yield return null;
+        }
+        else
+        {
+            doorResetInProcess = true;
+            yield return new WaitForSeconds(10f);
+            isDoorNear = false;
+            doorResetInProcess = false;
+        }
 
+    }
+    void DoorOpeningHandler()
+    {
+        if (!weaponPartEnded)
+        {
+            //play some sound
+            Debug.Log("Weapon is not picked up");
+            return;
+        }
+        showQuestionUI();
+        StartCoroutine("DoButtonPressedForDoor");
+    }
+    IEnumerator DoButtonPressedForDoor()
+    {
+        yield return new WaitUntil(() => Input.GetKey(KeyCode.Y) || Input.GetKey(KeyCode.N));
+
+
+        if (Input.GetKey(KeyCode.Y) == true) // yes pressed
+        {
+            StartCoroutine("DoorEmiting");
+            StartCoroutine("RestartScene");
+        }
+        else if (Input.GetKey(KeyCode.N)) // no pressed
+        {
+            Debug.Log("Pressed No on the door");
+        }
+
+        doorPartEnded = true;
+        SpawnPictures();
+        hideQuestionUI();
+        yield return new WaitForSeconds(.1f);
+    }
+
+    // Pictures part
+    void AskToPickALetter()
+    {
+        showQuestionUI();
+        StartCoroutine("DoButtonPressedForAPicture");
+    }
+
+    IEnumerator DoButtonPressedForAPicture()
+    {
+        yield return new WaitUntil(() => Input.GetKey(KeyCode.Y) || Input.GetKey(KeyCode.N));
+
+        if (Input.GetKey(KeyCode.Y) == true) // yes pressed
+        {
+            Debug.Log("I pick a picture!");
+        }
+        else if (Input.GetKey(KeyCode.N)) // no pressed
+        {
+            Debug.Log("I dont want to pick a picture");
+        }
+
+        hideQuestionUI();
+        yield return new WaitForSeconds(.1f);
+    }
+
+    // utility
     IEnumerator RestartScene()
     {
         yield return new WaitForSeconds(10);
         int currentSceneIndex = SceneManager.GetActiveScene().buildIndex;
         SceneManager.LoadScene(currentSceneIndex);
     }
-
-    void DoorOpened()
+    void showQuestionUI()
     {
+        isUIVisible = true;
         Time.timeScale = 0.1f;
         background.SetActive(true);
         yesButton.gameObject.SetActive(true);
         noButton.gameObject.SetActive(true);
         // camera freeze
-        StartCoroutine("DoButtonPressed2");
     }
-    IEnumerator DoButtonPressed2()
-    {
-        yield return new WaitUntil(() => buttonPressed);
 
-        if (yesOrNot == true)
-        {
-            Debug.Log("Pressed Yes on the door");
-            StartCoroutine("DoorEmiting");
-            //StartCoroutine("RestartScene");
-        }
-        else // no pressed
-        {
-            Debug.Log("Pressed No on the door");
-        }
+    void hideQuestionUI()
+    {
+        isUIVisible = false;
         Time.timeScale = 1f;
         background.SetActive(false);
         yesButton.gameObject.SetActive(false);
         noButton.gameObject.SetActive(false);
-
-        buttonPressed = false;
-        yield return new WaitForSeconds(.1f);
+        // camera unfreeze
     }
     IEnumerator DoorEmiting()
     {
         float elapsedTime = 0f;
-
         doorMaterial.EnableKeyword("_EMISSION");
+        float initialIntensity = 0f;
+        float targetIntensity = 4.0f;
+        doorMaterial.SetColor("_EmissionColor", new Vector4(15.050f, 2.357f, 2.357f, 0));
         Color currentColor = doorMaterial.GetColor("_EmissionColor");
-        Debug.Log(currentColor);
-        float initialIntensity = -10f;
-        float targetIntensity = 4.5f;
-
-        while (elapsedTime < 5.0f) // duration
+        while (elapsedTime < 7.0f) // duration
         {
-            float t = elapsedTime / 5.0f;
+            float t = elapsedTime / 7.0f;
             float newIntensity = Mathf.Lerp(initialIntensity, targetIntensity, t);
-            //initialIntensity += newIntensity;
+            //initialIntensity += newIntensity; useless
             Color newColor = currentColor * newIntensity;
 
             doorMaterial.SetColor("_EmissionColor", newColor);
@@ -206,6 +259,15 @@ public class GameManager : MonoBehaviour
             elapsedTime += Time.deltaTime;
             yield return null;
         }
+        //StartCoroutine("DoorFade");
+        Destroy(door.gameObject);
     }
 
+    void SpawnPictures()
+    {
+        foreach (GameObject obj in pictures)
+        {
+            obj.SetActive(true);
+        }
+    }
 }
