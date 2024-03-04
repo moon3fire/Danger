@@ -6,6 +6,7 @@ using UnityEngine.Events;
 using UnityEngine.SceneManagement;
 using Unity.VisualScripting;
 using System.Data;
+using TMPro;
 
 public class GameManager : MonoBehaviour
 {
@@ -20,11 +21,20 @@ public class GameManager : MonoBehaviour
     public Button yesButton;
     public Button noButton;
 
-
     //Game state -- Level 1
+    //weapon
     public bool weaponPartEnded = false;
+    //door
     public bool doorPartEnded = false, doorResetInProcess = false;
-    public bool picturesPartEnded = false, askedToPickAPicture = false;
+    //pictures
+    public bool picturesPartEnded = false, askedToPickAPicture = false, askInHold = false, animationEnd = false;
+    GameObject pickedLetterObject;
+    GameObject replacingLetterObject;
+    string pickedText = string.Empty;
+    string replacementText = string.Empty;
+
+    public GameObject rightHandObject;
+    public Material rightHandEmissive, rightHandDefault;
 
     //GameObjects
     public float triggerDistance = 5.0f; 
@@ -35,6 +45,7 @@ public class GameManager : MonoBehaviour
     public Transform player, weapon, door, dontOpenText3D;
     public List<GameObject> pictures = new List<GameObject>();
     public List<Transform> picturePlaceholders = new List<Transform>();
+    public List<Transform> candidatePlaceholders = new List<Transform>();
     public Material doorMaterial;
 
     public AudioSource playerASDeath;
@@ -90,16 +101,34 @@ public class GameManager : MonoBehaviour
         //Pictures part
         if (!picturesPartEnded && weaponPartEnded && doorPartEnded)
         {
-            foreach (Transform ph in picturePlaceholders)
+            if (!askInHold)
             {
-                float placeHolderDistance = Vector3.Distance(player.position, ph.transform.position);
-                if (placeHolderDistance < triggerDistance + 1.25f && !askedToPickAPicture) // added additional value due to bad objects
+                if (!askedToPickAPicture)
                 {
-                    AskToPickALetter();
+                    foreach (Transform ph in picturePlaceholders)
+                    {
+                        float phDistance = Vector3.Distance(player.position, ph.position);
+                        if (phDistance < triggerDistance + 1.25f) // added additional value due to bad objects
+                        {
+                            pickedLetterObject = ph.GetChild(0).GetChild(0).gameObject;
+                            AskToPickALetter();
+                            //erase the picked element for some time from the list and then add it after replacement
+                            break;
+                        }
+                    }
                 }
-                else if (placeHolderDistance < triggerDistance + 1.25f && askedToPickAPicture)
+                else if (askedToPickAPicture)
                 {
-                    Debug.Log("SOMETHING!))))) :)");
+                    foreach (Transform ph in candidatePlaceholders)
+                    {
+                        float candidateDistance = Vector3.Distance(player.position, ph.position);
+                        if (candidateDistance < triggerDistance + 1.25f)
+                        {
+                            replacingLetterObject = ph.GetChild(0).GetChild(0).gameObject;
+                            AskToReplaceALetter();
+                            break;
+                        }
+                    }
                 }
             }
         }
@@ -193,24 +222,84 @@ public class GameManager : MonoBehaviour
     void AskToPickALetter()
     {
         showQuestionUI();
-        StartCoroutine("DoButtonPressedForAPicture");
+        StartCoroutine("DoButtonPressedForPicking");
     }
 
-    IEnumerator DoButtonPressedForAPicture()
+    void AskToReplaceALetter()
+    {
+        showQuestionUI();
+        StartCoroutine("DoButtonPressedForReplacement");
+    }
+
+    IEnumerator DoButtonPressedForPicking()
     {
         yield return new WaitUntil(() => Input.GetKey(KeyCode.Y) || Input.GetKey(KeyCode.N));
 
         if (Input.GetKey(KeyCode.Y) == true) // yes pressed
         {
-            Debug.Log("I pick a picture!");
+            //animating right hand
+            rightHandObject.GetComponent<Renderer>().material = rightHandEmissive;
+            animationEnd = false;
+            StartCoroutine("AnimateRightHand");
+
+            pickedText = pickedLetterObject.GetComponent<TextMeshPro>().text;
+            pickedLetterObject.GetComponent<TextMeshPro>().SetText("");
+            Debug.Log("Picked text is: " + pickedText);
+
+            foreach (Transform ph in picturePlaceholders)
+            {
+                if (ph.transform.GetChild(0).GetChild(0).name != pickedLetterObject.name)
+                {
+                    Debug.Log(ph.transform.GetChild(0).GetChild(0).name + " VS " + pickedLetterObject.name);
+                    candidatePlaceholders.Add(ph);
+                }
+            }
         }
         else if (Input.GetKey(KeyCode.N)) // no pressed
         {
             Debug.Log("I dont want to pick a picture");
+            // start corountine for 5 sec
         }
 
+        askedToPickAPicture = true;
+        askInHold = true;
+        StartCoroutine("AskingInHoldState");
         hideQuestionUI();
         yield return new WaitForSeconds(.1f);
+    }
+
+    IEnumerator DoButtonPressedForReplacement()
+    {
+        yield return new WaitUntil(() => Input.GetKey(KeyCode.Y) || Input.GetKey(KeyCode.N));
+
+        if (Input.GetKey(KeyCode.Y) == true) // yes pressed
+        {
+            rightHandObject.GetComponent<Renderer>().material = rightHandDefault;
+            replacementText = replacingLetterObject.GetComponent<TextMeshPro>().text;
+            replacingLetterObject.GetComponent<TextMeshPro>().SetText(pickedText);
+            pickedLetterObject.GetComponent<TextMeshPro>().SetText(replacementText);
+            askedToPickAPicture = false;
+            candidatePlaceholders.Clear();
+            pickedText = string.Empty;
+            replacementText = string.Empty;
+            animationEnd = true;
+        }
+        else if (Input.GetKey(KeyCode.N)) // no pressed
+        {
+            Debug.Log("I dont want to replace the text");
+            // start corountine for 5 sec
+        }
+
+        askInHold = true;
+        StartCoroutine("AskingInHoldState");
+        hideQuestionUI();
+        yield return new WaitForSeconds(.1f);
+    }
+
+    IEnumerator AskingInHoldState()
+    {
+        yield return new WaitForSeconds(2f);
+        askInHold = false;
     }
 
     // utility
@@ -251,7 +340,6 @@ public class GameManager : MonoBehaviour
         {
             float t = elapsedTime / 7.0f;
             float newIntensity = Mathf.Lerp(initialIntensity, targetIntensity, t);
-            //initialIntensity += newIntensity; useless
             Color newColor = currentColor * newIntensity;
 
             doorMaterial.SetColor("_EmissionColor", newColor);
@@ -261,6 +349,45 @@ public class GameManager : MonoBehaviour
         }
         //StartCoroutine("DoorFade");
         Destroy(door.gameObject);
+    }
+
+    IEnumerator AnimateRightHand()
+    {
+        while (!animationEnd)
+        {
+            float elapsedTime1 = 0f, elapsedTime2 = 0f;
+            rightHandEmissive.EnableKeyword("_EMISSION");
+            float initialIntensity = 0f;
+            float targetIntensity = 2.2f;
+            rightHandEmissive.SetColor("_EmissionColor", new Vector4(2.357f, 2.357f, 15.050f, 0));
+            Color currentColor = rightHandEmissive.GetColor("_EmissionColor");
+
+            while (elapsedTime1 < 3.5f)
+            {
+                float t = elapsedTime1 / 3.5f;
+                float newIntensity = Mathf.Lerp(initialIntensity, targetIntensity, t);
+                Color newColor = currentColor * newIntensity;
+                rightHandEmissive.SetColor("_EmissionColor", newColor);
+
+                elapsedTime1 += Time.deltaTime;
+                yield return null;
+            }
+            rightHandEmissive.SetColor("_EmissionColor", currentColor * targetIntensity);
+
+            yield return new WaitForSeconds(0.1f);
+
+            while (elapsedTime2 < 3f)
+            {
+                float t = elapsedTime2 / 3f;
+                float newIntensity = Mathf.Lerp(targetIntensity, initialIntensity, t);
+                Color newColor = currentColor * newIntensity;
+                rightHandEmissive.SetColor("_EmissionColor", newColor);
+
+                elapsedTime2 += Time.deltaTime;
+                yield return null;
+            }
+        }
+        //rightHandEmissive.SetColor("_EmissionColor", Color.black);
     }
 
     void SpawnPictures()
