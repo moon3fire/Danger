@@ -1,0 +1,147 @@
+# =============== #
+# Unity generated #
+# =============== #
+[Tt]emp/
+[Ll]ibrary/
+[Ll]ogs/
+[Ll]ibrary.metadata
+
+# ======================= #
+# Visual Studio Code #
+# ======================= #
+.vscode/
+
+# ============ #
+# macOS #
+# ============ #
+.DS_Store
+
+# ============ #
+# Windows #
+# ============ #
+Thumbs.db
+Desktop.ini
+
+# ============= #
+# Thumbnails #
+# ============= #
+*.sln.docstates
+
+# ============================ #
+# Unity Package Manager #
+# ============================ #
+Packages/
+
+# ===================================== #
+# Custom folders (Add more if needed) #
+# ===================================== #
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Ll]ibrary/
+[Tt]emp/
+[Tt]est[Rr]esults/
+
+# ==================== #
+# Compiled/Generated Files #
+# ==================== #
+*.pidb
+*.pdb
+*.mdb
+*.meta
+
+# ==================================== #
+# Mono Auto Generated Files #
+# ==================================== #
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.userprefs
+*.pidb.meta
+
+# ======================== #
+# Unity3D generated meta files #
+# ======================== #
+*.pidb.meta
+*.pdb.meta
+*.mdb.meta
+
+# ==================================== #
+# Windows image file caches #
+# ==================================== #
+Thumbs.db
+ehthumbs.db
+
+# Folder config file #
+Desktop.ini
+
+# Recycle Bin used on file shares #
+$RECYCLE.BIN/
+
+# VS Code folders #
+.vscode/
+
+# Rider folder #
+.idea/
+
+# User-specific files #
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Mono Auto Generated Files #
+mono_crash.*
+
+# Windows image file caches #
+Thumbs.db
+ehthumbs.db
+
+# Folder config file #
+Desktop.ini
+
+# Recycle Bin used on file shares #
+$RECYCLE.BIN/
+
+# VS Code directories #
+.vscode/
+.idea/
+
+# Rider
+.idea/
+
+# User-specific files #
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Mono Auto Generated Files #
+mono_crash.*
+
+# Windows image file caches #
+Thumbs.db
+ehthumbs.db
+
+# Folder config file #
+Desktop.ini
+
+# Recycle Bin used on file shares #
+$RECYCLE.BIN/
+
+# VS Code folders #
+.vscode/
+
+# Rider folder #
+.idea/
+
+# User-specific files #
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Mono Auto Generated Files #
+mono_crash.*
