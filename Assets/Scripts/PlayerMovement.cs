@@ -4,6 +4,7 @@ using UnityEngine;
 
 public class PlayerMovement : MonoBehaviour
 {
+    public GameManager gameManager;
     public AudioSource footstepAS;
     public Transform cameraTransform;
     [SerializeField] 
@@ -28,28 +29,31 @@ public class PlayerMovement : MonoBehaviour
 
     void Update()
     {
-        float horizontal = Input.GetAxisRaw("Horizontal");
-        float vertical = Input.GetAxisRaw("Vertical");
-        Vector3 direction = new Vector3(horizontal, 0f, vertical).normalized;   
-
-        if (direction.magnitude > 0.1f)
+        if (!gameManager.movementDisabled)
         {
-            float targetAngle = Mathf.Atan2(direction.x, direction.z) * Mathf.Rad2Deg + cameraTransform.eulerAngles.y;
-            float angle = Mathf.SmoothDampAngle(transform.eulerAngles.y, targetAngle, ref turnSmoothVelocity, turnSmoothTime);
-            transform.rotation = Quaternion.Euler(0f, angle, 0f);
+            float horizontal = Input.GetAxisRaw("Horizontal");
+            float vertical = Input.GetAxisRaw("Vertical");
+            Vector3 direction = new Vector3(horizontal, 0f, vertical).normalized;
 
-            isWalking = true;
-            Vector3 moveDirection = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
-            if (footstepAS.isPlaying == false)
-                footstepAS.Play();
-            characterController.Move(moveDirection.normalized * moveSpeed * Time.deltaTime);
-        }
-        else
-        {
-            footstepAS.Stop();
-            isWalking = false;
-        }
+            if (direction.magnitude > 0.1f)
+            {
+                float targetAngle = Mathf.Atan2(direction.x, direction.z) * Mathf.Rad2Deg + cameraTransform.eulerAngles.y;
+                float angle = Mathf.SmoothDampAngle(transform.eulerAngles.y, targetAngle, ref turnSmoothVelocity, turnSmoothTime);
+                transform.rotation = Quaternion.Euler(0f, angle, 0f);
 
-        characterAnimator.SetBool("isWalking", isWalking);
+                isWalking = true;
+                Vector3 moveDirection = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
+                if (footstepAS.isPlaying == false)
+                    footstepAS.Play();
+                characterController.Move(moveDirection.normalized * moveSpeed * Time.deltaTime);
+            }
+            else
+            {
+                footstepAS.Stop();
+                isWalking = false;
+            }
+
+            characterAnimator.SetBool("isWalking", isWalking);
+        }
     }
 }

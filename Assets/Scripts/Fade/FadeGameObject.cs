@@ -5,12 +5,7 @@ using UnityEngine;
 public class FadeGameObject : MonoBehaviour
 {
     public float fadeDuration = 3.0f;
-    Renderer objRenderer;
-
-    private void Start()
-    {
-        objRenderer = GetComponent<Renderer>();
-    }
+    public Material objMaterial;
 
     public void FadeOut()
     {
@@ -24,32 +19,32 @@ public class FadeGameObject : MonoBehaviour
     IEnumerator FadeOutBegin()
     {
         float timer = 0f;
-        Color startColor = objRenderer.material.color;
+        Color startColor = objMaterial.color;
 
         while (timer < fadeDuration)
         {
             float alpha = Mathf.Lerp(1f, 0f, timer / fadeDuration);
-            objRenderer.material.color = new Color(startColor.r, startColor.g, startColor.b, alpha);
+            objMaterial.color = new Color(startColor.r, startColor.g, startColor.b, alpha);
             timer += Time.deltaTime;
             yield return null;
         }
 
-        objRenderer.material.color = new Color(startColor.r, startColor.g, startColor.b, 0f);
+        objMaterial.color = new Color(startColor.r, startColor.g, startColor.b, 0f);
     }
 
     IEnumerator FadeInBegin()
     {
         float timer = 0f;
-        Color startColor = objRenderer.material.color;
+        Color startColor = objMaterial.color;
 
         while (timer < fadeDuration)
         {
             float alpha = Mathf.Lerp(0f, 1f, timer / fadeDuration);
-            objRenderer.material.color = new Color(startColor.r, startColor.g, startColor.b, alpha);
+            objMaterial.color = new Color(startColor.r, startColor.g, startColor.b, alpha);
             timer += Time.deltaTime;
             yield return null;
         }
 
-        objRenderer.material.color = new Color(startColor.r, startColor.g, startColor.b, 1f);
+        objMaterial.color = new Color(startColor.r, startColor.g, startColor.b, 1f);
     }
 }
