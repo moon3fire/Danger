@@ -7,7 +7,7 @@ public class PlayerMovement : MonoBehaviour
     public GameManager gameManager;
     public AudioSource footstepAS;
     public Transform cameraTransform;
-    [SerializeField] 
+    [SerializeField]
     CharacterController characterController;
     [SerializeField]
     private Animator characterAnimator;
