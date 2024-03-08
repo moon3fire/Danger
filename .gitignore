@@ -133,6 +133,7 @@ $RECYCLE.BIN/
 
 # VS Code folders #
 .vscode/
+.vs/
 
 # Rider folder #
 .idea/
