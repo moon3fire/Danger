@@ -4,6 +4,13 @@ using UnityEngine;
 
 public class MovementInLabyrinth : MonoBehaviour
 {
+    public AudioSource camAS1, camAS2;
+    private bool changedToAmbient = false, corridorPassed = false;
+    public GameObject wall;
+    public List<GameObject> previousObjetcts = new List<GameObject>();
+    public GameObject gate;
+
+    public Transform corridorStart, corridotEnd;
     public AudioSource footstepAS;
     public Transform cameraTransform;
     [SerializeField]
@@ -32,6 +39,22 @@ public class MovementInLabyrinth : MonoBehaviour
         float vertical = Input.GetAxisRaw("Vertical");
         Vector3 direction = new Vector3(horizontal, 0f, vertical).normalized;
 
+        if (!changedToAmbient)
+        {
+            if (IsInCorridor())
+            {
+                ChangeClips();
+            }
+        }
+
+        if (!corridorPassed)
+        {
+            if (IsCorridorPassed())
+            {
+                HidePreviousObjects();
+            }
+        }
+
         if (direction.magnitude > 0.1f)
         {
             float targetAngle = Mathf.Atan2(direction.x, direction.z) * Mathf.Rad2Deg + cameraTransform.eulerAngles.y;
@@ -51,6 +74,42 @@ public class MovementInLabyrinth : MonoBehaviour
         }
 
         characterAnimator.SetBool("isWalking", isWalking);
-    
+
+    }
+
+    bool IsInCorridor()
+    {
+        if (gameObject.transform.position.z < corridorStart.position.z)
+        {
+            wall.SetActive(true);
+            return true;
+        }
+        return false;
+    }
+    void ChangeClips()
+    {
+        changedToAmbient = true;
+        camAS1.Stop();
+        footstepAS.volume = 0f;
+        camAS2.Play();
+    }
+
+    bool IsCorridorPassed()
+    {
+        if (gameObject.transform.position.z < corridotEnd.position.z)
+        {
+            corridorPassed = true;
+            gate.SetActive(true);
+            return true;
+        }
+        return false;
+    }
+
+    void HidePreviousObjects()
+    {
+        foreach (GameObject obj in previousObjetcts)
+        {
+            obj.SetActive(false);
+        }
     }
 }

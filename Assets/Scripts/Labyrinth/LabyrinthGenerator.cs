@@ -4,6 +4,7 @@ using Cell = System.ValueTuple<int, int>;
 
 public class LabyrinthGenerator : MonoBehaviour
 {
+    public GameObject doorPrefab;
     public int width = 10;
     public int height = 10;
     private float wallLength = 10f;
@@ -50,7 +51,10 @@ public class LabyrinthGenerator : MonoBehaviour
 
     void OpenExit()
     {
-        DestroyWall((0, UnityEngine.Random.Range(0, width)), Walls.UP_WALL);
+        float y = UnityEngine.Random.Range(1, width - 1);
+        DestroyWall((0, (int)y), Walls.UP_WALL);
+        doorPrefab.transform.position = new Vector3(-wallLength, -1.78f, y * wallLength);
+        doorPrefab.transform.Rotate(0f, 0f, 90f);
     }
 
     void InitializeMatrix()
@@ -236,9 +240,9 @@ public class LabyrinthGenerator : MonoBehaviour
 
     void PaintGround()
     {
-        for (int i = -1; i < height + 1; i++)
+        for (int i = -height / 2; i < height + height / 2; i++)
         {
-            for (int j = -1; j < width + 1; j++)
+            for (int j = -width / 2; j < width + width / 2; j++)
             {
                 Instantiate(plane, new Vector3(i * wallLength, -5f, j *  wallLength), Quaternion.identity);
             }

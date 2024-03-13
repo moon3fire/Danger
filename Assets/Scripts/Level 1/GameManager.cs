@@ -2,20 +2,19 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.Events;
 using UnityEngine.SceneManagement;
 using Unity.VisualScripting;
-using System.Data;
 using TMPro;
 using Cinemachine;
 
 public class GameManager : MonoBehaviour
 {
     // game state
-    private bool blueLevelHandled = false;
-    private bool hintShowed = false;
+    private bool blueLevelHandled = false, helpTextShowed = false, loadingLevel = false;
     private bool nextLevelStarted = false;
-    private int gameState = -1; // 0 weapon, 1 door, 2 pictures, 3 blue door
+    private int gameState = 0; // 0 weapon, 1 door, 2 pictures, 3 blue door
+    //ending
+    public GameObject whiteBG, endingText;
 
     [SerializeField] 
     private bool isUIVisible = false;
@@ -30,6 +29,7 @@ public class GameManager : MonoBehaviour
     public GameObject helpText;
 
     //Game state -- Level 1
+    private static int weaponsTaked = 0;
     private static bool level1IntroEnded = false;
     //weapon
     public bool weaponPartEnded = false;
@@ -77,6 +77,10 @@ public class GameManager : MonoBehaviour
     // Methods
     void Start()
     {
+        wasdImage.gameObject.SetActive(false);
+        wasdTextUGUI.gameObject.SetActive(false);
+        controlsTextUGUI.gameObject.SetActive(false);
+
         Debug.Log("Intro status: " + level1IntroEnded);
         if (level1IntroEnded)
         {
@@ -108,6 +112,11 @@ public class GameManager : MonoBehaviour
         if (picturesPartEnded && doorPartEnded && weaponPartEnded)
         {
             // call function for this
+            rulesText.GetComponent<TextMeshPro>().text = "need to do ";
+            if (3 - weaponsTaked > 1)
+                rulesText.GetComponent<TextMeshPro>().text += (3 - weaponsTaked) + " things to get out";
+            else if (3 - weaponsTaked == 1)
+                rulesText.GetComponent<TextMeshPro>().text += "1 thing to get out";
             rulesText.SetActive(true);
             if (!door.gameObject.activeSelf)
             {
@@ -120,15 +129,19 @@ public class GameManager : MonoBehaviour
         if (!picturesPartEnded)
             CheckIfTextIsCorrect();
 
-        if (Input.GetKey(KeyCode.H) && !hintShowed)
+        if (!loadingLevel)
         {
-            StartCoroutine(ShowHint());
+            if (spaceKeyPressed && nearRedOpenedDoor)
+                StartCoroutine("LoadLabyrinthLevel");
+            if (spaceKeyPressed && nearBlueOpenedDoor)
+                StartCoroutine("HandleBlueDoor");
         }
 
-        if (spaceKeyPressed && nearRedOpenedDoor)
-            StartCoroutine("LoadLabyrinthLevel");
-        if (spaceKeyPressed && nearBlueOpenedDoor)
-            StartCoroutine("HandleBlueDoor");
+        if (weaponsTaked == 3)
+        {
+            PersistentData.levelInfo = 3;
+            SceneManager.LoadSceneAsync(2);
+        }
     }
 
     void CheckRadiuses()
@@ -195,18 +208,6 @@ public class GameManager : MonoBehaviour
                 }
             }
         }
-
-        //next level
-        if (picturesPartEnded && !nextLevelStarted)
-        {
-            float doorDistance = Vector3.Distance(player.position, door.position);
-            if (doorDistance < triggerDistance)
-            {
-                nextLevelStarted = true;
-                StartCoroutine(StartNextLevel());
-                return;
-            }
-        }
     }
 
     // Weapon Part
@@ -222,7 +223,7 @@ public class GameManager : MonoBehaviour
 
         if (Input.GetKey(KeyCode.Y)) //yes pressed
         {
-            gameState += 1;
+            weaponsTaked++;
             //player.gameObject.GetComponent<Animator>().SetBool("dead", true);
             //playerASDeath.Play();
             //StartCoroutine("RestartScene");
@@ -231,10 +232,10 @@ public class GameManager : MonoBehaviour
         }
         else if (Input.GetKey(KeyCode.N)) // no pressed
         {
-            gameState += 1;
             StartCoroutine("DestroyWeapon");
         }
 
+        gameState++;
         weaponPickingQuestionText.SetActive(false);
         weaponPartEnded = true;
         hideQuestionUI();
@@ -344,7 +345,6 @@ public class GameManager : MonoBehaviour
         }
         else if (Input.GetKey(KeyCode.N)) // no pressed
         {
-            StartCoroutine("DoorEmiting2");
             nearBlueOpenedDoor = true;
         }
 
@@ -470,6 +470,7 @@ public class GameManager : MonoBehaviour
     // utility
     IEnumerator RestartScene()
     {
+        Debug.Log("restarting the scene");
         weapon.GetComponent<AudioSource>().Play();
         yield return new WaitForSeconds(4.65f);
         //crunch, some quote if player dies
@@ -604,31 +605,32 @@ public class GameManager : MonoBehaviour
         player.GetComponent<PlayerMovement>().enabled = false;
         player.GetComponent<CharacterController>().enabled = false;
         player.GetComponent<Animator>().enabled = false;
-        flCam.enabled = false;
         yield return new WaitForSeconds(9f);
         StartCoroutine(ShowControls());
         level1IntroEnded = true;
         player.GetComponent<CharacterController>().enabled = true;
         player.GetComponent<Animator>().enabled = true;
-        flCam.enabled = true;
         player.GetComponent<PlayerMovement>().enabled = true;
         gameState = 0;
-        StartCoroutine(ShowHelp());
         yield return new WaitForSeconds(0.1f);
     }
 
     IEnumerator ShowControls()
     {
+        wasdImage.gameObject.SetActive(true);
+        wasdTextUGUI.gameObject.SetActive(true);
+        controlsTextUGUI.gameObject.SetActive(true);
+
         float timer = 0f;
         Color wasdColor = wasdImage.GetComponent<Image>().color;
         Color textColor = wasdTextUGUI.color;
         Color controlsColor = controlsTextUGUI.color;
 
-        while (timer < 3f)
+        while (timer < 5f)
         {
-            float alpha1 = Mathf.Lerp(wasdColor.a, 0f, timer / 3f);
-            float alpha2 = Mathf.Lerp(textColor.a, 0f, timer / 3f);
-            float alpha3 = Mathf.Lerp(controlsColor.a, 0f, timer / 3f);
+            float alpha1 = Mathf.Lerp(wasdColor.a, 0f, timer / 5f);
+            float alpha2 = Mathf.Lerp(textColor.a, 0f, timer / 5f);
+            float alpha3 = Mathf.Lerp(controlsColor.a, 0f, timer / 5f);
             Color currentColor = new Color(wasdColor.r, wasdColor.g, wasdColor.b, alpha1);
             Color currentColor2 = new Color(textColor.r, textColor.g, textColor.b, alpha2);
             Color currentColor3 = new Color(controlsColor.r, controlsColor.g, controlsColor.b, alpha3);
@@ -640,37 +642,6 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    IEnumerator ShowHelp()
-    {
-        helpText.SetActive(true);
-        helpText.GetComponent<FadeHelpText>().FadeIn();
-        yield return new WaitForSeconds(3f);
-    }
-
-    IEnumerator HideHelp()
-    {
-        yield return new WaitForSeconds(3f);
-        helpText.GetComponent<FadeHelpText>().FadeOut();
-    }
-
-    IEnumerator ShowHint()
-    {
-        hintShowed = true;
-        helpText.SetActive(true);
-        if (gameState == 0)
-            helpText.GetComponent<TextMeshProUGUI>().text = "Take the pike, you will need to defend yourself";
-        else if (gameState == 1)
-            helpText.GetComponent<TextMeshProUGUI>().text = "Open the door, to see the truth";
-        else if (gameState == 2)
-            helpText.GetComponent<TextMeshProUGUI>().text = "";
-        else if (gameState == 3)
-            helpText.GetComponent<TextMeshProUGUI>().text = "You're in safety";
-        yield return new WaitForSeconds(3f);
-
-        hintShowed = false;
-        helpText.SetActive(false);
-    }
-
     IEnumerator StartNextLevel()
     {
         yield return new WaitForSeconds(3);
@@ -679,38 +650,151 @@ public class GameManager : MonoBehaviour
 
     IEnumerator LoadLabyrinthLevel()
     {
-        showQuestionUI();
-        yield return new WaitUntil(() => Input.GetKey(KeyCode.Y) || Input.GetKey(KeyCode.N));
-
-        if (Input.GetKey(KeyCode.Y) == true) // yes pressed
+        float distance = Vector3.Distance(player.gameObject.transform.position, door.transform.position);
+        if (distance > 5f)
         {
-            SceneManager.LoadScene(2);
+            yield return null;
         }
-        else if (Input.GetKey(KeyCode.N)) // no pressed
+        else
         {
-            Debug.Log("I dont want to enter the door");
+            if (!picturesPartEnded)
+            {
+                door.GetComponent<AudioSource>().Play();
+                yield return null;
+            }
+            else
+            {
+                StartCoroutine(DoorEmiting());
+                //play some sound effects loading 
+                blueLevelHandled = true;
+                PersistentData.levelInfo = 1;
+                StartCoroutine(AnimateWhiteBG2());
+            }
         }
-        hideQuestionUI();
-
     }
 
     IEnumerator HandleBlueDoor()
     {
-        if (!picturesPartEnded)
+        float distance = Vector3.Distance(player.gameObject.transform.position, door.transform.position);
+        if (distance > 5f)
         {
-            blueLevelHandled = true;
-            helpText.GetComponent<TextMeshProUGUI>().text = "selur eht daer ot deen uoy";
-            helpText.SetActive(true);
-            yield return new WaitForSeconds(3f);
-            helpText.SetActive(false);
+            yield return null;
         }
-        else if (!blueLevelHandled)
+        else
         {
-            //play some sound effects loading 
+            if (!picturesPartEnded)
+            {
+                door.GetComponent<AudioSource>().Play();
+                yield return null;
+            }
+            else if (!blueLevelHandled)
+            {
+                StartCoroutine(DoorEmiting2());
+                //play some sound effects loading 
+                blueLevelHandled = true;
+                StartCoroutine(AnimateWhiteBG1());
+            }
+        }
+    }
 
-            blueLevelHandled = true;
-            yield return new WaitForSeconds(3f);
-            SceneManager.LoadScene(1);
+    // scene loading animations
+
+    IEnumerator AnimateWhiteBG1()
+    {
+        endingText.SetActive(true);
+        whiteBG.SetActive(true);
+        float timer = 0f;
+        Color bgColor = whiteBG.GetComponent<Image>().color;
+        while (timer < 3f)
+        {
+            float alpha1 = Mathf.Lerp(0f, 2f, timer / 3f);
+            Color currentColor = new Color(bgColor.r, bgColor.g, bgColor.b, alpha1);
+            whiteBG.GetComponent<Image>().color = currentColor;
+            timer += Time.deltaTime;
+            yield return null;
+        }
+        yield return new WaitForSeconds(.1f);
+        endingText.GetComponent<TextMeshProUGUI>().text = "You walk, and at the end of the maze, is a prize\n" +
+                                                          "just waiting to be discovered";
+        StartCoroutine(TextFadeOut(endingText));
+        yield return new WaitForSeconds(5f);
+        StartCoroutine(TextFadeIn(endingText));
+        yield return new WaitForSeconds(5f);
+        endingText.GetComponent<TextMeshProUGUI>().text = "All you have to do is find your way through.\n" +
+                                                          "Can you see the maze? Its walls and floors,\n" +
+                                                          "its twists and turns?";
+        StartCoroutine(TextFadeOut(endingText));
+        yield return new WaitForSeconds(5f);
+        StartCoroutine(TextFadeIn(endingText));
+        yield return new WaitForSeconds(5f);
+        endingText.GetComponent<TextMeshProUGUI>().text = "Good, because the maze you've created in your mind\n" +
+                                                          "is itself the maze. There is no desert, no rock or sand.\n" +
+                                                          "There is the only idea of it.";
+        StartCoroutine(TextFadeOut(endingText));
+        yield return new WaitForSeconds(5f);
+        StartCoroutine(TextFadeIn(endingText));
+        yield return new WaitForSeconds(3f);
+        SceneManager.LoadScene(1);
+    }
+
+    IEnumerator AnimateWhiteBG2()
+    {
+        endingText.SetActive(true);
+        whiteBG.SetActive(true);
+        float timer = 0f;
+        Color bgColor = whiteBG.GetComponent<Image>().color;
+        while (timer < 3f)
+        {
+            float alpha1 = Mathf.Lerp(0f, 2f, timer / 3f);
+            Color currentColor = new Color(bgColor.r, bgColor.g, bgColor.b, alpha1);
+            whiteBG.GetComponent<Image>().color = currentColor;
+            timer += Time.deltaTime;
+            yield return null;
+        }
+        yield return new WaitForSeconds(.1f);
+        endingText.GetComponent<TextMeshProUGUI>().text = "There is a maze in the desert carved from sand and rock";
+        StartCoroutine(TextFadeOut(endingText));
+        yield return new WaitForSeconds(5f);
+        StartCoroutine(TextFadeIn(endingText));
+        yield return new WaitForSeconds(5f);
+        endingText.GetComponent<TextMeshProUGUI>().text = "A vast labyrinth of pathways and corridors, a hundred miles long";
+        StartCoroutine(TextFadeOut(endingText));
+        yield return new WaitForSeconds(5f);
+        StartCoroutine(TextFadeIn(endingText));
+        yield return new WaitForSeconds(5f);
+        endingText.GetComponent<TextMeshProUGUI>().text = "Full of twists and dead ends. Picture it - the maze";
+        StartCoroutine(TextFadeOut(endingText));
+        yield return new WaitForSeconds(5f);
+        StartCoroutine(TextFadeIn(endingText));
+        yield return new WaitForSeconds(3f);
+        SceneManager.LoadScene(2);
+    }
+
+    IEnumerator TextFadeOut(GameObject obj)
+    {
+        float timer = 0f;
+        Color text1Color = obj.GetComponent<TextMeshProUGUI>().color;
+        while (timer < 5f)
+        {
+            float alpha1 = Mathf.Lerp(0f, 2f, timer / 5f);
+            Color currentColor = new Color(text1Color.r, text1Color.g, text1Color.b, alpha1);
+            obj.GetComponent<TextMeshProUGUI>().color = currentColor;
+            timer += Time.deltaTime;
+            yield return null;
+        }
+    }
+
+    IEnumerator TextFadeIn(GameObject obj)
+    {
+        float timer = 0f;
+        Color text1Color = obj.GetComponent<TextMeshProUGUI>().color;
+        while (timer < 5f)
+        {
+            float alpha1 = Mathf.Lerp(2f, 0f, timer / 5f);
+            Color currentColor = new Color(text1Color.r, text1Color.g, text1Color.b, alpha1);
+            obj.GetComponent<TextMeshProUGUI>().color = currentColor;
+            timer += Time.deltaTime;
+            yield return null;
         }
     }
 

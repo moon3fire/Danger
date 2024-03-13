@@ -3,20 +3,22 @@ using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
-using UnityEngine.UIElements;
+using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 public class GameManager2 : MonoBehaviour
 {
     //state
+    public bool swordTouched = false;
+    public GameObject whiteBG;
     private float triggerDistance = 6.0f;
     private bool spaceKeyPressed = false;
 
     private bool weaponAlreadyPicked = false;
     private bool doorAlreadyPicked = false;
-    private bool pictureAlreadyPicked = false, symbolTaked = false;
+    private bool pictureAlreadyPicked = false, symbolTaked = false, lastPictureAlreadyPicked = false, lastSymbolTaked;
     private bool rightHandAnimationGoing = false;
-    private bool replacingStarted = false;
-    private bool peaceCollected = false;
+    private bool replacingStarted = false, lastReplacingStarted;
     // game objects
     public CinemachineFreeLook flCam;
     public GameObject weapon, door, wall, player, rightHandObject;
@@ -27,8 +29,11 @@ public class GameManager2 : MonoBehaviour
     public GameObject lastPicture;
 
     public List<Transform> picturePlaceholders = new List<Transform>();
+    public List<Transform> lastPicturePlaceholders = new List<Transform>();
     public List<Transform> candidatePlaceholders = new List<Transform>();
+    public List<Transform> lastCandidatePlaceholders = new List<Transform>();
     public List<TextMeshPro> letters = new List<TextMeshPro>();
+    public List<TextMeshPro> lastLetters = new List<TextMeshPro>();
 
     private TextMeshPro pickedPictureText, replacingPictureText;
     private string pickedText, replacingText;
@@ -48,7 +53,7 @@ public class GameManager2 : MonoBehaviour
         else
             spaceKeyPressed = false;
 
-        if (spaceKeyPressed && !peaceCollected)
+        if (spaceKeyPressed)
             CheckRadiuses();
 
     }
@@ -65,7 +70,7 @@ public class GameManager2 : MonoBehaviour
             }
         }
 
-        if (!doorAlreadyPicked)
+        if (!doorAlreadyPicked && !swordTouched)
         {
             float distance = Vector3.Distance(player.transform.position, door.transform.position);
             if (distance < triggerDistance)
@@ -75,7 +80,7 @@ public class GameManager2 : MonoBehaviour
             }
         }
 
-        if (!pictureAlreadyPicked)
+        if (!pictureAlreadyPicked && !swordTouched)
         {
             foreach (Transform ph in picturePlaceholders)
             {
@@ -89,8 +94,22 @@ public class GameManager2 : MonoBehaviour
                 }
             }
         }
+        else if (swordTouched && !lastPictureAlreadyPicked)
+        {
+            foreach (Transform ph in lastPicturePlaceholders)
+            {
+                float phDistance = Vector3.Distance(player.transform.position, ph.position);
+                if (phDistance < triggerDistance + 1.25f) // added additional value due to bad objects
+                {
+                    lastPictureAlreadyPicked = true;
+                    pickedPictureText = ph.GetChild(0).GetChild(0).GetComponent<TextMeshPro>();
+                    StartCoroutine(AskToPickALastLetter()); // new one
+                    break;
+                }
+            }
+        }
 
-        if (symbolTaked && !replacingStarted)
+        if (symbolTaked && !replacingStarted && !swordTouched)
         {
             foreach (Transform ph in candidatePlaceholders)
             {
@@ -100,6 +119,20 @@ public class GameManager2 : MonoBehaviour
                     replacingStarted = true;
                     replacingPictureText = ph.GetChild(0).GetChild(0).GetComponent<TextMeshPro>();
                     StartCoroutine(AskToReplaceALetter());
+                    break;
+                }
+            }
+        }
+        else if (swordTouched && !lastReplacingStarted && lastSymbolTaked)
+        {
+            foreach (Transform ph in lastCandidatePlaceholders)
+            {
+                float phDistance = Vector3.Distance(player.transform.position, ph.position);
+                if (phDistance < triggerDistance + 1.25f)
+                {
+                    lastReplacingStarted = true;
+                    replacingPictureText = ph.GetChild(0).GetChild(0).GetComponent<TextMeshPro>();
+                    StartCoroutine(AskToReplaceALastLetter()); // new one
                     break;
                 }
             }
@@ -325,8 +358,105 @@ public class GameManager2 : MonoBehaviour
 
         if (word == "PEACE")
         {
-            peaceCollected = true;
             wall.SetActive(false);
         }
+    }
+
+    IEnumerator AskToPickALastLetter()
+    {
+        symbolPickText.SetActive(true);
+        showQuestionUI();
+
+        yield return new WaitUntil(() => Input.GetKey(KeyCode.Y) || Input.GetKey(KeyCode.N));
+
+        if (Input.GetKey(KeyCode.Y) == true) // yes pressed
+        {
+            rightHandAnimationGoing = true;
+            StartCoroutine(AnimateRightHand());
+            lastSymbolTaked = true;
+            rightHandObject.GetComponent<Renderer>().material = rightHandEmissive;
+            rightHandObject.GetComponent<AudioSource>().Play();
+            pickedText = pickedPictureText.text;
+            pickedPictureText.SetText("");
+
+            foreach (Transform ph in lastPicturePlaceholders)
+            {
+                if (ph.transform.GetChild(0).GetChild(0).name != pickedPictureText.gameObject.name)
+                {
+                    lastCandidatePlaceholders.Add(ph);
+                }
+            }
+        }
+        else if (Input.GetKey(KeyCode.N)) // no pressed
+        {
+            lastPictureAlreadyPicked = false;
+        }
+
+        symbolPickText.gameObject.SetActive(false);
+        hideQuestionUI();
+    }
+
+    IEnumerator AskToReplaceALastLetter()
+    {
+        showQuestionUI();
+        symbolReplaceText.SetActive(true);
+
+        yield return new WaitUntil(() => Input.GetKey(KeyCode.Y) || Input.GetKey(KeyCode.N));
+
+        if (Input.GetKey(KeyCode.Y) == true) // yes pressed
+        {
+            lastPictureAlreadyPicked = false;
+            rightHandAnimationGoing = false;
+            lastSymbolTaked = false;
+            rightHandObject.GetComponent<AudioSource>().Stop();
+            rightHandObject.GetComponent<Renderer>().material = rightHandBase;
+            replacingText = replacingPictureText.text;
+            pickedPictureText.GetComponent<TextMeshPro>().SetText(replacingText);
+            replacingPictureText.GetComponent<TextMeshPro>().SetText(pickedText);
+            lastCandidatePlaceholders.Clear();
+            pickedText = string.Empty;
+            replacingText = string.Empty;
+        }
+        else if (Input.GetKey(KeyCode.N)) // no pressed
+        {
+            Debug.Log("I dont want to replace the text");
+        }
+
+        lastReplacingStarted = false;
+        symbolReplaceText.SetActive(false);
+        hideQuestionUI();
+        CheckEscape();
+        yield return new WaitForSeconds(.1f);
+    }
+
+    void CheckEscape()
+    {
+        string word = string.Empty;
+        foreach (TextMeshPro letter in lastLetters)
+        {
+            word += letter.text;
+        }
+
+        if (word == "ESCAPE")
+        {
+            StartCoroutine(SolvedMaze());
+        }
+    }
+
+    IEnumerator SolvedMaze()
+    {
+        float timer = 0f;
+        Color bgColor = whiteBG.GetComponent<Image>().color;
+        while (timer < 3f)
+        {
+            float alpha1 = Mathf.Lerp(0f, 2f, timer / 3f);
+            Color currentColor = new Color(bgColor.r, bgColor.g, bgColor.b, alpha1);
+            whiteBG.GetComponent<Image>().color = currentColor;
+            timer += Time.deltaTime;
+            yield return null;
+        }
+
+        PersistentData.levelInfo = 2;
+        SceneManager.LoadScene(2);
     }
 }
